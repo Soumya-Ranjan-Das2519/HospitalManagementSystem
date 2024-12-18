@@ -1,63 +1,124 @@
-<?php include('db.php'); ?>
+<?php
+include('db.php');
+
+// Fetch appointments
+$query = "SELECT a.id AS appointment_id, 
+                 p.name AS patient_name, 
+                 d.name AS doctor_name, 
+                 a.appointment_date, 
+                 a.appointment_time 
+          FROM appointments a 
+          JOIN patients p ON a.patient_id = p.id 
+          JOIN doctors d ON a.doctor_id = d.id";
+
+$result = $conn->query($query);
+
+if (!$result) {
+    die("Query Error: " . $conn->error);
+}
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doctor Panel</title>
+    <title>Doctor Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">HospitalMS</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item"><a class="nav-link" href="index.php">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="admin.php">Admin</a></li>
+                    <li class="nav-item"><a class="nav-link active" href="doctor.php">Doctor</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
     <div class="container my-5">
-        <h2>Doctor Dashboard</h2>
-        <h4>Your Appointments</h4>
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Patient Name</th>
-                    <th>Appointment Date</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php
-                $doctor_id = 1; // Assume logged-in doctor ID
-                $result = $conn->query("SELECT a.id, p.name AS patient_name, a.appointment_date, a.status 
-                                        FROM appointments a 
-                                        JOIN patients p ON a.patient_id = p.id 
-                                        WHERE a.doctor_id = $doctor_id");
-                while ($row = $result->fetch_assoc()) {
-                    echo "<tr>
-                        <td>{$row['id']}</td>
-                        <td>{$row['patient_name']}</td>
-                        <td>{$row['appointment_date']}</td>
-                        <td>{$row['status']}</td>
-                        <td>
-                            <form action='' method='POST' class='d-inline'>
-                                <input type='hidden' name='appointment_id' value='{$row['id']}'>
-                                <select name='status' class='form-select form-select-sm d-inline w-auto'>
-                                    <option value='Scheduled'>Scheduled</option>
-                                    <option value='Completed'>Completed</option>
-                                    <option value='Cancelled'>Cancelled</option>
-                                </select>
-                                <button type='submit' name='update' class='btn btn-sm btn-success'>Update</button>
-                            </form>
-                        </td>
-                    </tr>";
-                }
-                ?>
-            </tbody>
-        </table>
-        <?php
-        if (isset($_POST['update'])) {
-            $appointment_id = $_POST['appointment_id'];
-            $status = $_POST['status'];
-            $conn->query("UPDATE appointments SET status='$status' WHERE id=$appointment_id");
-            echo "<div class='alert alert-success'>Appointment updated successfully!</div>";
-        }
-        ?>
+        <h1 class="text-center">Doctor Dashboard</h1>
+        <p class="text-center">View and manage your appointments efficiently.</p>
+
+        <!-- Search Bar -->
+        <div class="input-group mb-3">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search appointments by patient or doctor name">
+            <span class="input-group-text" id="basic-addon2">Search</span>
+        </div>
+
+        <!-- Appointments Table -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Patient Name</th>
+                        <th>Doctor Name</th>
+                        <th>Appointment Date</th>
+                        <th>Appointment Time</th>
+                        <!-- <th>Actions</th> -->
+                    </tr>
+                </thead>
+                <tbody id="appointmentsTable">
+                    <?php if ($result->num_rows > 0): ?>
+                        <?php while ($row = $result->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= $row['appointment_id']; ?></td>
+                                <td><?= htmlspecialchars($row['patient_name']); ?></td>
+                                <td><?= htmlspecialchars($row['doctor_name']); ?></td>
+                                <td><?= $row['appointment_date']; ?></td>
+                                <td><?= $row['appointment_time']; ?></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary">View</button>
+                                    <button class="btn btn-sm btn-success">Edit</button>
+                                    <button class="btn btn-sm btn-danger">Delete</button>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="6" class="text-center">No appointments found</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
+
+    <footer class="text-center bg-dark text-white py-3">
+        &copy; 2024 Hospital Management System
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // JavaScript for search functionality
+        const searchInput = document.getElementById('searchInput');
+        const appointmentsTable = document.getElementById('appointmentsTable');
+
+        searchInput.addEventListener('keyup', () => {
+            const filter = searchInput.value.toLowerCase();
+            const rows = appointmentsTable.getElementsByTagName('tr');
+            for (let i = 0; i < rows.length; i++) {
+                const columns = rows[i].getElementsByTagName('td');
+                if (columns.length > 0) {
+                    const patientName = columns[1].textContent.toLowerCase();
+                    const doctorName = columns[2].textContent.toLowerCase();
+                    if (patientName.includes(filter) || doctorName.includes(filter)) {
+                        rows[i].style.display = '';
+                    } else {
+                        rows[i].style.display = 'none';
+                    }
+                }
+            }
+        });
+    </script>
 </body>
 </html>
